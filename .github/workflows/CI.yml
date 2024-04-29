@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main,master,develop,dev]
+  pull_request:
+    branches: [main,master,develop,dev]
+
+env:
+  CARGO_TERM_COLOR: always
+  CACHE_PATHS: |
+    ~/.cargo/bin/
+    ~/.cargo/registry/index/
+    ~/.cargo/registry/cache/
+    ~/.cargo/git/db/
+    target/
+
+jobs:
+  validity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions/cache@v3
+        with:
+          path: ${{ env.CACHE_PATHS }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Check source is valid
+        run: cargo check --workspace
+
+  formating:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Rust formatting with rustfmt
+        run: cargo fmt --all --check
+
+  tests:
+    needs: validity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v3
+        with:
+          path: ${{ env.CACHE_PATHS }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Run all tests
+        run: cargo test --workspace --verbose --all-features
+
+  clippy:
+    needs: validity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v3
+        with:
+          path: ${{ env.CACHE_PATHS }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Lint code with clippy
+        run: cargo clippy
+
+  publish-ability:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check that it will publish to crates
+        run: |
+          cargo publish --no-verify --dry-run -p fun-pkg-api
+          cargo publish --no-verify --dry-run -p fun-pkg-impl
+        shell: bash

@@ -1,0 +1,19 @@
+[package]
+name = "fun-pkg-api"
+version = "0.1.1"
+edition = "2021"
+authors = [
+    "John <example@outlook.com>",
+]
+description = """
+A project to demonstrate publishing crates
+"""
+readme = "README.md"
+documentation = "https://docs.rs/fun-pkg-api"
+repository = "https://github.com/John-Chan/crates-release"
+license = "MIT"
+keywords = ["fun"]
+categories = ["development-tools"]
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]

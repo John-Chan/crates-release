@@ -1,0 +1,93 @@
+name: Publish crates on crates.io
+
+on:
+  workflow_dispatch:
+    inputs:
+      fun-pkg-api-version:
+        description: "fun-pkg-api: major/minor/patch or semver or none if not updating derive crate"
+        required: false
+        default: "none"
+      fun-pkg-impl-version:
+        description: "fun-pkg-impl: major/minor/patch or semver or none if not updating derive crate"
+        required: false
+        default: "none"
+
+#permissions:                    # Global permissions configuration starts here
+#  contents: read                # 'read' access to repository contents
+#  pull-requests: write          # 'write' access to pull requests
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:                # Job-level permissions configuration starts here
+      contents: write           # 'write' access to repository contents
+      pull-requests: write      # 'write' access to pull requests
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          persist-credentials: false # otherwise, the token used is the GITHUB_TOKEN, instead of your personal token
+          fetch-depth: 0             # otherwise, you will fail to push refs to dest repo
+          #ref: ${{ github.head_ref }}
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Set git credentials
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install tools
+        run: |
+          cargo install -q cargo-get cargo-edit
+
+      - name: "[fun-pkg-api] Bump"
+        if: "${{ github.event.inputs.fun-pkg-api-version == 'major' || github.event.inputs.fun-pkg-api-version == 'minor' || github.event.inputs.fun-pkg-api-version == 'patch' }}"
+        #working-directory: ${{ github.workspace }}
+        run: |
+          cargo set-version --bump ${{ github.event.inputs.fun-pkg-api-version}} -p fun-pkg-api
+          CRATE_TAG="$(cd fun-pkg-api && cargo get package.name)-$(cd fun-pkg-api && cargo get package.version --pretty)"
+          git add .
+          git commit -am "Release: $CRATE_TAG"
+          git tag "$CRATE_TAG"
+
+      - name: "[fun-pkg-api] Push"
+        uses: ad-m/github-push-action@master
+        if: "${{ github.event.inputs.fun-pkg-api-version == 'major' || github.event.inputs.fun-pkg-api-version == 'minor' || github.event.inputs.fun-pkg-api-version == 'patch' }}"
+        with:
+          branch: ${{ github.ref }}
+          tags: true
+
+      - name: "[fun-pkg-api] Publish"
+        if: "${{ github.event.inputs.fun-pkg-api-version == 'major' || github.event.inputs.fun-pkg-api-version == 'minor' || github.event.inputs.fun-pkg-api-version == 'patch' }}"
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN  }}
+        run: cargo publish --no-verify -p fun-pkg-api
+
+
+      - name: "[fun-pkg-impl] Bump"
+        if: "${{ github.event.inputs.fun-pkg-impl-version == 'major' || github.event.inputs.fun-pkg-impl-version == 'minor' || github.event.inputs.fun-pkg-impl-version == 'patch' }}"
+        #working-directory: ${{ github.workspace }}
+        shell: bash
+        run: |
+          cargo set-version --bump ${{ github.event.inputs.fun-pkg-impl-version}} -p fun-pkg-impl
+          CRATE_TAG="$(cd fun-pkg-impl && cargo get package.name)-$(cd fun-pkg-impl && cargo get package.version --pretty)"
+          git add .
+          git commit -am "Release: $CRATE_TAG"
+          git tag "$CRATE_TAG"
+
+      - name: "[fun-pkg-impl] Push"
+        uses: ad-m/github-push-action@master
+        if: "${{ github.event.inputs.fun-pkg-impl-version == 'major' || github.event.inputs.fun-pkg-impl-version == 'minor' || github.event.inputs.fun-pkg-impl-version == 'patch' }}"
+        with:
+          branch: ${{ github.ref }}
+          tags: true
+
+      - name: "[fun-pkg-impl] Publish"
+        if: "${{ github.event.inputs.fun-pkg-impl-version == 'major' || github.event.inputs.fun-pkg-impl-version == 'minor' || github.event.inputs.fun-pkg-impl-version == 'patch' }}"
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN  }}
+        run: cargo publish --no-verify -p fun-pkg-impl
